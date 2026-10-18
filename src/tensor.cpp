@@ -3,6 +3,7 @@
 // gradients are all tensors, e.g. a batch of images has shape {N, C, H, W}.
 
 #include "nnf/tensor.h"
+#include <sstream> //for to_string implementation
 #include <stdexcept> //for error messages
 
 namespace nnf {
@@ -34,6 +35,20 @@ Tensor Tensor::full(const Shape& shape, float value) {
     return Tensor(impl);
 }
 
+//create a tensor from with chosen numbers
+Tensor Tensor::from_vector(const std::vector<float>& data, const Shape& shape) {
+
+    //throw error if the numbers don't fit the shape
+    if (data.size() != shape_numel(shape))
+        throw std::invalid_argument("from_vector: data size doesn't match shape");
+
+    auto impl = std::make_shared<TensorImpl>();
+    impl->storage = std::make_shared<std::vector<float>>(data);  //copy your numbers in
+    impl->shape = shape;
+    impl->strides = contiguous_strides(shape);
+    return Tensor(impl);
+}
+
 float& Tensor::at(const std::vector<size_t>& index) {
 
     //throw error if out of index
@@ -51,6 +66,29 @@ float& Tensor::at(const std::vector<size_t>& index) {
     //return the value at that position
     return (*impl_->storage)[pos];
 }
+
+std::string Tensor::to_string() const {
+    std::ostringstream out;
+
+    // Part 1: the shape
+    out << "Tensor(shape={";
+    for (size_t i = 0; i < impl_->shape.size(); ++i) {
+        if (i > 0) out << ", ";
+        out << impl_->shape[i];
+    }
+
+    // Part 2: the numbers
+    out << "}, data=[";
+    const auto& data = *impl_->storage;
+    for (size_t i = 0; i < numel(); ++i) {
+        if (i > 0) out << ", ";
+        out << data[impl_->offset + i];
+    }
+    out << "])";
+
+    return out.str();
+}
+
 
 }  // namespace nnf
 
