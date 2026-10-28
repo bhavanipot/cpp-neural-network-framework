@@ -37,8 +37,17 @@ int main() {
     std::cout << "--- randn tests ---\n";
     std::cout << nnf::Tensor::randn({2, 3}).to_string() << "\n";
     std::cout << nnf::Tensor::randn({2, 3}).to_string() << "\n";      
-    std::cout << nnf::Tensor::randn({2, 3}, 7).to_string() << "\n";    
+    std::cout << nnf::Tensor::randn({2, 3}, 7).to_string() << "\n";
     
+    // ---- math ----
+    std::cout << "--- math tests ---\n";
+    nnf::Tensor a = nnf::Tensor::from_vector({1, 2, 3}, {3});
+    nnf::Tensor b = nnf::Tensor::from_vector({4, 5, 6}, {3});
+    std::cout << (a + b).to_string() << "\n";   // [5, 7, 9]
+    std::cout << (a - b).to_string() << "\n";   // [-3, -3, -3]
+    std::cout << (a * b).to_string() << "\n";   // [4, 10, 18]
+    std::cout << (a / b).to_string() << "\n";   // [0.25, 0.4, 0.5]
+
     // Ask for a position that doesn't exist
     try {
         t.at({5, 0});

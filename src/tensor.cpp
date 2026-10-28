@@ -106,6 +106,89 @@ std::string Tensor::to_string() const {
     return out.str();
 }
 
+// add two tensors elementwise
+//[1,2,3] + [4,5,6] = [5,7,9]
+Tensor operator+(const Tensor& a, const Tensor& b) {
+
+    //both tensors must be the same size
+    if (a.shape() != b.shape())
+        throw std::invalid_argument("shape mismatch");
+
+    Tensor result = Tensor::zeros(a.shape());
+
+    const float* a_nums = a.data();
+    const float* b_nums = b.data();
+    float* result_nums = result.data();
+
+    for (size_t i = 0; i < result.numel(); ++i) {
+        result_nums[i] = a_nums[i] + b_nums[i];
+    }
+
+    return result;
+}
+
+// subtract two tensors elementwise
+//[1,2,3] - [4,5,6] = [-3,-3,-3]
+Tensor operator-(const Tensor& a, const Tensor& b) {
+
+    //both tensors must be the same size
+    if (a.shape() != b.shape())
+        throw std::invalid_argument("shape mismatch");
+
+    Tensor result = Tensor::zeros(a.shape());
+
+    const float* a_nums = a.data();
+    const float* b_nums = b.data();
+    float* result_nums = result.data();
+
+    for (size_t i = 0; i < result.numel(); ++i) {
+        result_nums[i] = a_nums[i] - b_nums[i];
+    }
+
+    return result;
+}
+
+// multiply two tensors elementwise
+//[1,2,3] * [4,5,6] = [4,10,18]
+Tensor operator*(const Tensor& a, const Tensor& b) {
+
+    //both tensors must be the same size
+    if (a.shape() != b.shape())
+        throw std::invalid_argument("shape mismatch");
+
+    Tensor result = Tensor::zeros(a.shape());
+
+    const float* a_nums = a.data();
+    const float* b_nums = b.data();
+    float* result_nums = result.data();
+
+    for (size_t i = 0; i < result.numel(); ++i) {
+        result_nums[i] = a_nums[i] * b_nums[i];
+    }
+
+    return result;
+}
+
+// divide two tensors elementwise
+//[1,2,3] / [4,5,6] = [0.25,0.4,0.5]
+Tensor operator/(const Tensor& a, const Tensor& b) {
+
+    //both tensors must be the same size
+    if (a.shape() != b.shape())
+        throw std::invalid_argument("shape mismatch");
+
+    Tensor result = Tensor::zeros(a.shape());
+
+    const float* a_nums = a.data();
+    const float* b_nums = b.data();
+    float* result_nums = result.data();
+
+    for (size_t i = 0; i < result.numel(); ++i) {
+        result_nums[i] = a_nums[i] / b_nums[i];
+    }
+
+    return result;
+}
 
 }  // namespace nnf
 

@@ -32,11 +32,22 @@ public:
     size_t numel() const { return shape_numel(impl_->shape); } //numbers it can hold
     std::string to_string() const; //printing the tensors for debugging
 
+    float* data() { return impl_->storage->data() + impl_->offset; }  //pointer to the numbers
+    const float* data() const { return impl_->storage->data() + impl_->offset; } //read-only version
+
     float& at(const std::vector<size_t>& index); //finding value at index
 
 private:
     explicit Tensor(std::shared_ptr<TensorImpl> impl) : impl_(std::move(impl)) {}
     std::shared_ptr<TensorImpl> impl_;
 };
+
+
+Tensor operator+(const Tensor& a, const Tensor& b);
+Tensor operator-(const Tensor& a, const Tensor& b);
+Tensor operator*(const Tensor& a, const Tensor& b);
+Tensor operator/(const Tensor& a, const Tensor& b);
+Tensor operator-(const Tensor& a); // unary minus
+Tensor operator+(const Tensor& a); // unary plus
 
 }  // namespace nnf
