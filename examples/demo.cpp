@@ -33,6 +33,12 @@ int main() {
     m.at({0, 0}) = 100.0f;
     std::cout << m.to_string() << "\n";
 
+    // ---- randn ----
+    std::cout << "--- randn tests ---\n";
+    std::cout << nnf::Tensor::randn({2, 3}).to_string() << "\n";
+    std::cout << nnf::Tensor::randn({2, 3}).to_string() << "\n";      
+    std::cout << nnf::Tensor::randn({2, 3}, 7).to_string() << "\n";    
+    
     // Ask for a position that doesn't exist
     try {
         t.at({5, 0});

@@ -5,6 +5,7 @@
 #include "nnf/tensor.h"
 #include <sstream> //for to_string implementation
 #include <stdexcept> //for error messages
+#include <random> //for randn implementation
 
 namespace nnf {
 
@@ -47,6 +48,22 @@ Tensor Tensor::from_vector(const std::vector<float>& data, const Shape& shape) {
     impl->shape = shape;
     impl->strides = contiguous_strides(shape);
     return Tensor(impl);
+}
+
+// Create a tensor filled with random numbers.
+Tensor Tensor::randn(const Shape& shape, unsigned seed) {
+    std::mt19937 generator(seed);  //set up the random number generator,    
+    std::normal_distribution<float> bell_curve(0.0f, 1.0f); // a bell curve with center 0 and spread 1
+
+    Tensor result = zeros(shape); // make a tensor of the right size (all zeros for now)
+
+    // replace every number with a random one
+    std::vector<float>& numbers = *result.impl_->storage;
+    for (size_t i = 0; i < numbers.size(); ++i) {
+        numbers[i] = bell_curve(generator);
+    }
+
+    return result;
 }
 
 float& Tensor::at(const std::vector<size_t>& index) {

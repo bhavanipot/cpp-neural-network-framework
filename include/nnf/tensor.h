@@ -26,6 +26,7 @@ public:
     static Tensor full(const Shape& shape, float value); //making tensors
     static Tensor zeros(const Shape& shape) { return full(shape, 0.0f); }
     static Tensor from_vector(const std::vector<float>& data, const Shape& shape); //tensor from your own numbers
+    static Tensor randn(const Shape& shape, unsigned seed = 42); //tensor of random numbers
 
     const Shape& shape() const { return impl_->shape; } //size dimensions 
     size_t numel() const { return shape_numel(impl_->shape); } //numbers it can hold
