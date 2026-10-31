@@ -7,3 +7,9 @@ target_include_directories(nnf PUBLIC include)
 
 add_executable(demo examples/demo.cpp)
 target_link_libraries(demo PRIVATE nnf)
+
+# tests: run with ctest --test-dir build
+enable_testing()
+add_executable(test_tensor tests/test_tensor.cpp)
+target_link_libraries(test_tensor PRIVATE nnf)
+add_test(NAME tensor_tests COMMAND test_tensor)
