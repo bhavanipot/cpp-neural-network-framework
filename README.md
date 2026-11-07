@@ -18,6 +18,6 @@ to explore how fast training can be on ordinary, CPU-only hardware.
 ## Roadmap
 
 - [x] Tensors
-- [ ] Autograd
+- [x] Autograd
 - [ ] Training (layers, optimizers, MNIST)
 - [ ] Fast CPU kernels (cache blocking, threads, SIMD)
