@@ -1,5 +1,7 @@
 #include <iostream>
 #include "nnf/tensor.h"
+#include "nnf/optim.h"
+#include "nnf/layers.h"
 
 int main() {
     //Test program for tensor class
@@ -313,6 +315,25 @@ int main() {
     std::cout << "after 2 backwards: " << zg.grad().to_string() << "\n";  // [4], blame piled up
     zg.zero_grad();
     std::cout << "after zero_grad: " << zg.grad().to_string() << "\n";    // [0], ready for the next step
+
+    // ---- optimizer ----
+    std::cout << "--- optimizer tests ---\n";
+    nnf::Tensor ow = nnf::Tensor::from_vector({3}, {1});
+    ow.set_requires_grad(true);
+    nnf::SGD opt({ow}, 0.1f);
+
+    opt.zero_grad();
+    (ow * ow).backward();                                         // blame on w is 2w = 6
+    opt.step();                                                   // w = 3 - 0.1 × 6
+    std::cout << "w after one step: " << ow.to_string() << "\n";  // [2.4]
+
+    // ---- linear layer ----
+    std::cout << "--- linear layer tests ---\n";
+    nnf::Linear layer(3, 2);                                   // 3 inputs -> 2 outputs
+    std::cout << "W: " << layer.weight().to_string() << "\n";  // {3,2}, random, scaled by √(2/3) ≈ 0.82 for 3 inputs
+    std::cout << "b: " << layer.bias().to_string() << "\n";    // {2}, zeros
+    nnf::Tensor batch = nnf::Tensor::from_vector({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, {4, 3});  // 4 examples
+    std::cout << layer.forward(batch).to_string() << "\n";     // {4,2}, one row of outputs per example
 
     // Ask for a position that doesn't exist
     try {

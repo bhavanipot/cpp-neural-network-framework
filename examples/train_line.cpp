@@ -3,15 +3,7 @@
 
 #include <iostream>
 #include "nnf/tensor.h"
-
-//nudge every number against its blame: t -= learning_rate × blame
-//changes t's numbers in place, so no receipt is written
-static void nudge(nnf::Tensor& t, float learning_rate) {
-    nnf::Tensor blame = t.grad();
-    for (size_t i = 0; i < t.numel(); ++i) {
-        t.data()[i] -= learning_rate * blame.data()[i];
-    }
-}
+#include "nnf/optim.h"
 
 int main() {
     //the examples: inputs x and the right answers y = 2x + 1
@@ -25,11 +17,11 @@ int main() {
     b.set_requires_grad(true);
 
     const float learning_rate = 0.1f;  //how big each nudge is
+    nnf::SGD opt({w, b}, learning_rate);  //looks after w and b
 
     for (int step = 0; step <= 100; ++step) {
         //1. clear last step's blame
-        w.zero_grad();
-        b.zero_grad();
+        opt.zero_grad();
 
         //2. guess, and measure how wrong the guesses are
         nnf::Tensor pred = x * w + b;
@@ -40,8 +32,7 @@ int main() {
         loss.backward();
 
         //4. nudge against the blame
-        nudge(w, learning_rate);
-        nudge(b, learning_rate);
+        opt.step();
 
         if (step % 10 == 0)
             std::cout << "step " << step << ": loss " << loss.sum()
