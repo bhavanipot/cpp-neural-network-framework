@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(cpp_neural_network_framework LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 
-add_library(nnf src/tensor.cpp src/optim.cpp src/layers.cpp)
+add_library(nnf src/tensor.cpp src/optim.cpp src/layers.cpp src/losses.cpp)
 target_include_directories(nnf PUBLIC include)
 
 add_executable(demo examples/demo.cpp)
@@ -27,3 +27,7 @@ add_test(NAME training_tests COMMAND test_training)
 add_executable(test_layers tests/test_layers.cpp)
 target_link_libraries(test_layers PRIVATE nnf)
 add_test(NAME layers_tests COMMAND test_layers)
+
+add_executable(test_losses tests/test_losses.cpp)
+target_link_libraries(test_losses PRIVATE nnf)
+add_test(NAME losses_tests COMMAND test_losses)

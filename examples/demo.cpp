@@ -2,6 +2,7 @@
 #include "nnf/tensor.h"
 #include "nnf/optim.h"
 #include "nnf/layers.h"
+#include "nnf/losses.h"
 
 int main() {
     //Test program for tensor class
@@ -334,6 +335,20 @@ int main() {
     std::cout << "b: " << layer.bias().to_string() << "\n";    // {2}, zeros
     nnf::Tensor batch = nnf::Tensor::from_vector({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, {4, 3});  // 4 examples
     std::cout << layer.forward(batch).to_string() << "\n";     // {4,2}, one row of outputs per example
+
+    // ---- softmax and cross-entropy ----
+    std::cout << "--- classification tests ---\n";
+    nnf::Tensor logits = nnf::Tensor::from_vector({2, 1, 0.1f, 0.5f, 2.5f, 0.3f}, {2, 3});  // 2 examples, 3 classes
+    logits.set_requires_grad(true);
+    std::vector<size_t> answers = {0, 1};                                 // right answers: class 0, then class 1
+
+    std::cout << nnf::softmax(logits).to_string() << "\n";                // [0.659, 0.242, 0.099, 0.109, 0.803, 0.089]
+    std::vector<size_t> guesses = nnf::argmax(logits);
+    std::cout << "guesses: " << guesses[0] << ", " << guesses[1] << "\n";  // 0, 1: both right
+    nnf::Tensor ce = nnf::cross_entropy(logits, answers);
+    std::cout << "loss: " << ce.to_string() << "\n";                      // about 0.319: fairly confident and right
+    ce.backward();
+    std::cout << "blame: " << logits.grad().to_string() << "\n";          // (probabilities − one_hot) ÷ 2
 
     // Ask for a position that doesn't exist
     try {
