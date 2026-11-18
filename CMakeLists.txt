@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(cpp_neural_network_framework LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 
-add_library(nnf src/tensor.cpp src/optim.cpp src/layers.cpp src/losses.cpp)
+add_library(nnf src/tensor.cpp src/optim.cpp src/layers.cpp src/losses.cpp src/mnist.cpp src/save.cpp)
 target_include_directories(nnf PUBLIC include)
 
 add_executable(demo examples/demo.cpp)
@@ -13,6 +13,12 @@ target_link_libraries(train_line PRIVATE nnf)
 
 add_executable(train_circle examples/train_circle.cpp)
 target_link_libraries(train_circle PRIVATE nnf)
+
+add_executable(train_mnist examples/train_mnist.cpp)
+target_link_libraries(train_mnist PRIVATE nnf)
+
+add_executable(predict_mnist examples/predict_mnist.cpp)
+target_link_libraries(predict_mnist PRIVATE nnf)
 
 # tests: run with ctest --test-dir build
 enable_testing()
@@ -31,3 +37,11 @@ add_test(NAME layers_tests COMMAND test_layers)
 add_executable(test_losses tests/test_losses.cpp)
 target_link_libraries(test_losses PRIVATE nnf)
 add_test(NAME losses_tests COMMAND test_losses)
+
+add_executable(test_mnist tests/test_mnist.cpp)
+target_link_libraries(test_mnist PRIVATE nnf)
+add_test(NAME mnist_tests COMMAND test_mnist)
+
+add_executable(test_save tests/test_save.cpp)
+target_link_libraries(test_save PRIVATE nnf)
+add_test(NAME save_tests COMMAND test_save)

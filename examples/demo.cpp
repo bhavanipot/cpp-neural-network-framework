@@ -3,6 +3,9 @@
 #include "nnf/optim.h"
 #include "nnf/layers.h"
 #include "nnf/losses.h"
+#include "nnf/mnist.h"
+#include "nnf/save.h"
+#include <cstdio>   //std::remove
 
 int main() {
     //Test program for tensor class
@@ -349,6 +352,40 @@ int main() {
     std::cout << "loss: " << ce.to_string() << "\n";                      // about 0.319: fairly confident and right
     ce.backward();
     std::cout << "blame: " << logits.grad().to_string() << "\n";          // (probabilities − one_hot) ÷ 2
+
+    // ---- mnist ----
+    std::cout << "--- mnist tests ---\n";
+    try {
+        nnf::MnistData digits = nnf::load_mnist("data/t10k-images-idx3-ubyte", "data/t10k-labels-idx1-ubyte");
+        std::cout << "loaded " << digits.images.shape()[0] << " pictures of "
+                  << digits.images.shape()[1] << " pixels\n";            // 10000 pictures of 784 pixels
+
+        //draw the first picture: # where there's ink, . where it's blank
+        std::cout << "answer: " << digits.labels[0] << "\n";             // 7
+        for (size_t row = 0; row < 28; ++row) {
+            for (size_t col = 0; col < 28; ++col) {
+                std::cout << (digits.images.data()[row * 28 + col] > 0.5f ? "# " : ". ");
+            }
+            std::cout << "\n";
+        }
+
+        nnf::MnistData few = nnf::batch(digits, 0, 64);
+        std::cout << "a batch: " << few.images.shape()[0] << " pictures\n";  // 64
+    } catch (const std::runtime_error& e) {
+        std::cout << "skipped: " << e.what() << " (run scripts/download_mnist.sh)\n";
+    }
+
+    // ---- saving and loading weights ----
+    std::cout << "--- save and load tests ---\n";
+    nnf::Linear trained(3, 2, 1);
+    nnf::Linear fresh(3, 2, 2);                                   // different random weights
+    std::cout << trained.forward(batch).to_string() << "\n";
+    std::cout << fresh.forward(batch).to_string() << "\n";        // different outputs
+
+    nnf::save_parameters(trained.parameters(), "demo_weights.txt");
+    nnf::load_parameters(fresh.parameters(), "demo_weights.txt");
+    std::cout << fresh.forward(batch).to_string() << "\n";        // now the same as trained's
+    std::remove("demo_weights.txt");                              // tidy up the file
 
     // Ask for a position that doesn't exist
     try {

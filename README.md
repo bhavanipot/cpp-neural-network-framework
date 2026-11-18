@@ -19,5 +19,5 @@ to explore how fast training can be on ordinary, CPU-only hardware.
 
 - [x] Tensors
 - [x] Autograd
-- [ ] Training (layers, optimizers, MNIST)
+- [x] Training (layers, optimizers, MNIST)
 - [ ] Fast CPU kernels (cache blocking, threads, SIMD)
