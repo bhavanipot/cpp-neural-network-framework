@@ -3,6 +3,7 @@
 // Build in Release so it runs fast:
 //   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build && ./build/train_mnist
 
+#include <chrono>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -69,6 +70,9 @@ int main() {
         std::cout << "before training: test accuracy " << accuracy(net, test) << "\n";
 
         for (int epoch = 1; epoch <= 3; ++epoch) {
+            //time each epoch, to see how fast training is
+            std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+
             //one epoch = one pass through all 60,000 training pictures, 64 at a time
             for (size_t start = 0; start < train.labels.size(); start += batch_size) {
                 nnf::MnistData b = nnf::batch(train, start, batch_size);
@@ -82,8 +86,11 @@ int main() {
                     std::cout << "epoch " << epoch << ", picture " << start << ": loss " << loss.sum() << "\n";
             }
 
+            std::chrono::duration<double> seconds = std::chrono::steady_clock::now() - start;
+
             //after each pass, check on the 10,000 pictures it never learns from
-            std::cout << "after epoch " << epoch << ": test accuracy " << accuracy(net, test) << "\n";
+            std::cout << "after epoch " << epoch << ": test accuracy " << accuracy(net, test)
+                      << " (" << seconds.count() << " seconds)\n";
         }
 
         //keep what it learned, so predict_mnist can use it without training again

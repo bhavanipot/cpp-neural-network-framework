@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 add_library(nnf src/tensor.cpp src/optim.cpp src/layers.cpp src/losses.cpp src/mnist.cpp src/save.cpp)
 target_include_directories(nnf PUBLIC include)
 
+# matmul splits big multiplies across cores with std::thread
+find_package(Threads REQUIRED)
+target_link_libraries(nnf PUBLIC Threads::Threads)
+
 add_executable(demo examples/demo.cpp)
 target_link_libraries(demo PRIVATE nnf)
 
@@ -19,6 +23,9 @@ target_link_libraries(train_mnist PRIVATE nnf)
 
 add_executable(predict_mnist examples/predict_mnist.cpp)
 target_link_libraries(predict_mnist PRIVATE nnf)
+
+add_executable(bench_matmul examples/bench_matmul.cpp)
+target_link_libraries(bench_matmul PRIVATE nnf)
 
 # tests: run with ctest --test-dir build
 enable_testing()

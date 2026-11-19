@@ -9,6 +9,7 @@
 #include <cmath> //for exp, log, tanh
 #include <algorithm> //for std::max
 #include <set> //for backward's visited list
+#include <thread> //for splitting matmul across cores
 
 namespace nnf {
 
@@ -40,6 +41,12 @@ static void require_contiguous(const Tensor& t) {
 //walks every index like an odometer and reads each number through the strides
 static std::vector<float> values_of(const TensorImpl& t) {
     size_t count = shape_numel(t.shape);
+
+    //already in reading order: just copy the numbers straight across, no index walk needed
+    //(most tensors are, and this made backward about 2x faster)
+    if (t.strides == contiguous_strides(t.shape))
+        return std::vector<float>(t.storage->begin() + t.offset, t.storage->begin() + t.offset + count);
+
     std::vector<float> nums(count);
 
     const auto& data = *t.storage;
@@ -516,6 +523,62 @@ static void blame_tanh(TensorImpl& t) {
     }
 }
 
+// ---- matmul helpers: splitting the work across threads ----
+//each thread gets its own rows to write, so no two threads ever write the same number
+//(two threads writing one number at the same time would scramble it: a "race condition")
+
+//how many threads to split a matmul across:
+//small ones finish faster than threads can start, so they stay on one core
+static size_t threads_for(size_t work) {
+    if (work < 1000000)
+        return 1;
+    size_t cores = std::thread::hardware_concurrency();  //8 on an M2
+    return cores == 0 ? 1 : cores;
+}
+
+//rows row_start to row_end of a × b (one thread's share of a matmul)
+static void matmul_rows(const float* a_nums, const float* b_nums, float* result_nums,
+                        size_t m, size_t p, size_t row_start, size_t row_end) {
+    for (size_t row = row_start; row < row_end; ++row) {
+        for (size_t k = 0; k < m; ++k) {
+            float a_value = a_nums[row * m + k];
+            for (size_t col = 0; col < p; ++col) {
+                result_nums[row * p + col] += a_value * b_nums[k * p + col];
+            }
+        }
+    }
+}
+
+//a's blame for rows row_start to row_end: a.grad[row][k] += blame[row][col] × b[k][col], added up over col
+//(row `row` of the blame dotted with row k of b: both read along rows)
+static void blame_a_rows(const float* blame, const float* b_nums, float* a_grad,
+                         size_t m, size_t p, size_t row_start, size_t row_end) {
+    for (size_t row = row_start; row < row_end; ++row) {
+        for (size_t k = 0; k < m; ++k) {
+            float total = 0.0f;
+            for (size_t col = 0; col < p; ++col) {
+                total += blame[row * p + col] * b_nums[k * p + col];
+            }
+            a_grad[row * m + k] += total;
+        }
+    }
+}
+
+//b's blame for rows k_start to k_end of b: b.grad[k][col] += a[row][k] × blame[row][col], added up over row
+//split by rows of b, not rows of a: every row of a adds into all of b.grad, so splitting
+//by rows of a would have threads writing the same numbers
+static void blame_b_rows(const float* a_nums, const float* blame, float* b_grad,
+                         size_t n, size_t m, size_t p, size_t k_start, size_t k_end) {
+    for (size_t row = 0; row < n; ++row) {
+        for (size_t k = k_start; k < k_end; ++k) {
+            float a_value = a_nums[row * m + k];
+            for (size_t col = 0; col < p; ++col) {
+                b_grad[k * p + col] += a_value * blame[row * p + col];
+            }
+        }
+    }
+}
+
 //matmul: C[i][j] adds up A[i][k] * B[k][j], so nudging A[i][k] by 1 moves every
 //C[i][j] in row i by B[k][j]; its blame is the arriving blame times B, added up over j
 //(and the same the other way round for B). In maths books: G·Bᵀ and Aᵀ·G
@@ -530,13 +593,46 @@ static void blame_matmul(TensorImpl& t) {
     std::vector<float> a_nums = values_of(a);
     std::vector<float> b_nums = values_of(b);
 
-    for (size_t row = 0; row < n; ++row) {
-        for (size_t col = 0; col < p; ++col) {
-            float g = t.grad[row * p + col];  //blame arriving at C[row][col]
+    //two separate loops, each ordered so its innermost loop walks along rows (col innermost),
+    //reading memory in order, for the same reason as in matmul itself.
+    //splitting them also takes the "if requires_grad" out of the innermost loop:
+    //a choice inside the loop stops the compiler using SIMD to do several at once.
+    size_t threads = threads_for(n * m * p);
 
-            for (size_t k = 0; k < m; ++k) {
-                if (a.requires_grad) a.grad[row * m + k] += g * b_nums[k * p + col];
-                if (b.requires_grad) b.grad[k * p + col] += g * a_nums[row * m + k];
+    //a's blame: split by rows of a, each thread writes only its own rows of a.grad
+    if (a.requires_grad) {
+        if (threads == 1) {
+            blame_a_rows(t.grad.data(), b_nums.data(), a.grad.data(), m, p, 0, n);
+        } else {
+            size_t per_thread = (n + threads - 1) / threads;
+            std::vector<std::thread> workers;
+            for (size_t w = 0; w < threads; ++w) {
+                size_t start = std::min(n, w * per_thread);
+                size_t end = std::min(n, start + per_thread);
+                workers.push_back(std::thread(blame_a_rows, t.grad.data(), b_nums.data(), a.grad.data(),
+                                              m, p, start, end));
+            }
+            for (std::thread& worker : workers) {
+                worker.join();
+            }
+        }
+    }
+
+    //b's blame: split by rows of b (the k's), each thread writes only its own rows of b.grad
+    if (b.requires_grad) {
+        if (threads == 1) {
+            blame_b_rows(a_nums.data(), t.grad.data(), b.grad.data(), n, m, p, 0, m);
+        } else {
+            size_t per_thread = (m + threads - 1) / threads;
+            std::vector<std::thread> workers;
+            for (size_t w = 0; w < threads; ++w) {
+                size_t start = std::min(m, w * per_thread);
+                size_t end = std::min(m, start + per_thread);
+                workers.push_back(std::thread(blame_b_rows, a_nums.data(), t.grad.data(), b.grad.data(),
+                                              n, m, p, start, end));
+            }
+            for (std::thread& worker : workers) {
+                worker.join();
             }
         }
     }
@@ -1046,14 +1142,23 @@ Tensor matmul(const Tensor& a, const Tensor& b) {
     const float* b_nums = b.data();
     float* result_nums = result.data();
 
-    //each result cell is a row of a dotted with a column of b
-    for (size_t row = 0; row < n; ++row) {
-        for (size_t col = 0; col < p; ++col) {
-            float total = 0.0f;
-            for (size_t k = 0; k < m; ++k) {
-                total += a_nums[row * m + k] * b_nums[k * p + col];
-            }
-            result_nums[row * p + col] = total;
+    size_t threads = threads_for(n * m * p);
+
+    if (threads == 1) {
+        matmul_rows(a_nums, b_nums, result_nums, m, p, 0, n);
+    } else {
+        //split the rows into equal parts, one per thread (rounded up so none are left over)
+        size_t per_thread = (n + threads - 1) / threads;
+        std::vector<std::thread> workers;
+        for (size_t w = 0; w < threads; ++w) {
+            size_t start = std::min(n, w * per_thread);
+            size_t end = std::min(n, start + per_thread);
+            workers.push_back(std::thread(matmul_rows, a_nums, b_nums, result_nums, m, p, start, end));
+        }
+
+        //wait for every thread to finish before using the result
+        for (std::thread& worker : workers) {
+            worker.join();
         }
     }
 
